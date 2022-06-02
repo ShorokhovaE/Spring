@@ -11,15 +11,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @WebServlet(urlPatterns = "/product/*")
 public class ProductServlet extends HttpServlet {
 
-    public ProductRepository getProductRepository() {
-        return productRepository;
-    }
-
     private ProductRepository productRepository;
+
+    private static final Pattern PARAM_PATTERN = Pattern.compile("\\/(\\d+)");
 
     @Override
     public void init() throws ServletException {
@@ -39,27 +39,26 @@ public class ProductServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        PrintWriter wr = resp.getWriter();
-        wr.println("<table>");
-        wr.println("<tr>");
-        wr.println("<th>ID</th>");
-        wr.println("<th>ProductName</th>");
-        wr.println("</tr>");
 
-
-
-
-        for (Product product : productRepository.findAll()){
-
-            if(req.getPathInfo() == null || req.getPathInfo().equals("/")){
-                wr.println(String.format("<tr><td>%d</td><td>%s</td>", product.getId(), product.getProductName()));
-            } else if (req.getPathInfo().equals(String.format("/%d", product.getId()))) {
-                wr.println(String.format("<tr><td>%d</td><td>%s</td>", product.getId(), product.getProductName()));
-                break;
+        if (req.getPathInfo() == null || req.getPathInfo().equals("/")) {
+            req.setAttribute("products", productRepository.findAll());
+            getServletContext().getRequestDispatcher("/product.jsp").forward(req, resp);
+        } else{
+            Matcher matcher = PARAM_PATTERN.matcher(req.getPathInfo());
+            if (matcher.matches()) {
+                long id = Long.parseLong(matcher.group(1));
+                Product product = this.productRepository.findById(id);
+                if (product == null) {
+                    resp.getWriter().println("Product not found");
+                    resp.setStatus(404);
+                    return;
+                }
+                req.setAttribute("product", product.getProductName());
+                getServletContext().getRequestDispatcher("/product_form.jsp").forward(req, resp);
+            } else {
+                resp.getWriter().println("Bad parameter value");
+                resp.setStatus(400);
             }
         }
-
-        wr.println("</table>");
-
     }
 }
